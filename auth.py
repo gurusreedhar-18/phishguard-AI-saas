@@ -1,66 +1,64 @@
-from flask import Blueprint, request, render_template, redirect, url_for
-from models import db, User
+from flask import Blueprint, request, render_template, redirect, session
+from models import db, User, URLHistory
 from werkzeug.security import generate_password_hash, check_password_hash
 from utils import generate_api_key
 
 auth = Blueprint("auth", __name__)
 
-
-# 🔐 Signup Route
+# ------------------ SIGNUP ------------------
 @auth.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form["username"]
+        password = generate_password_hash(request.form["password"])
 
-        # Check if user already exists
-        existing_user = User.query.filter_by(username=username).first()
-        if existing_user:
-            return "Username already exists. Try another."
-
-        # Hash password
-        hashed_password = generate_password_hash(password)
-
-        # Create new user
         user = User(
             username=username,
-            password=hashed_password,
+            password=password,
             api_key=generate_api_key()
         )
 
         db.session.add(user)
         db.session.commit()
 
-        return redirect(url_for("auth.login"))
+        return redirect("/login")
 
     return render_template("signup.html")
 
 
-# 🔐 Login Route
+# ------------------ LOGIN ------------------
 @auth.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = request.form["username"]
+        password = request.form["password"]
 
         user = User.query.filter_by(username=username).first()
 
-        # Validate user
         if user and check_password_hash(user.password, password):
-            return redirect(url_for("auth.dashboard", user_id=user.id))
+            session["user_id"] = user.id
+            return redirect("/dashboard")
 
-        return "Invalid username or password"
+        return "Invalid login"
 
     return render_template("login.html")
 
 
-# 📊 Dashboard Route
-@auth.route("/dashboard/<int:user_id>")
-def dashboard(user_id):
+# ------------------ DASHBOARD ------------------
+@auth.route("/dashboard")
+def dashboard():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect("/login")
+
     user = User.query.get(user_id)
 
     if not user:
         return "User not found"
+
+    # ✅ Fetch URL history
+    history = URLHistory.query.filter_by(user_id=user.id).order_by(URLHistory.id.desc()).all()
 
     return render_template(
         "dashboard.html",
@@ -68,5 +66,23 @@ def dashboard(user_id):
         api_key=user.api_key,
         used=user.requests_made,
         remaining=100 - user.requests_made,
-        user_id=user.id   # ✅ VERY IMPORTANT (fixes your issue)
+        history=history
     )
+
+
+# ------------------ LOGOUT ------------------
+@auth.route("/logout")
+def logout():
+    session.pop("user_id", None)
+    return redirect("/login")
+@auth.route("/clear-history")
+def clear_history():
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return redirect("/login")
+
+    URLHistory.query.filter_by(user_id=user_id).delete()
+    db.session.commit()
+
+    return redirect("/dashboard")

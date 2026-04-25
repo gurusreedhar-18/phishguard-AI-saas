@@ -1,3 +1,4 @@
+<a href="/logout">Logout</a>
 <!DOCTYPE html>
 <html>
 <head>
@@ -35,3 +36,26 @@
 
 </body>
 </html>
+<h3>History</h3>
+
+<h3>History</h3>
+
+<a href="/clear-history" onclick="return confirm('Delete all history?')">Clear History</a>
+
+<br><br>
+
+<table border="1">
+<tr>
+    <th>URL</th>
+    <th>Result</th>
+    <th>Date</th>
+</tr>
+
+{% for item in history %}
+<tr>
+    <td>{{ item.url }}</td>
+    <td>{{ item.result }}</td>
+    <td>{{ item.created_at }}</td>
+</tr>
+{% endfor %}
+</table>

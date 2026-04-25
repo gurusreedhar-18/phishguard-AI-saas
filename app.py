@@ -2,6 +2,8 @@ from flask import Flask, request, render_template
 from models import db, User
 from auth import auth
 from api import api
+from flask import session
+from models import URLHistory
 import pickle
 import os
 from feature_extraction import extract_features
@@ -10,7 +12,7 @@ from feature_extraction import extract_features
 app = Flask(__name__)
 
 # Configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///database.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///new_database.db"
 app.config["SECRET_KEY"] = "secret"
 
 # Initialize database
@@ -40,7 +42,7 @@ def test_url():
     if request.method == "POST":
 
         url = request.form.get("url")
-        user_id = request.form.get("user_id")
+        user_id = session.get("user_id")
         if not user_id:
          return "User ID missing"
 
@@ -54,6 +56,15 @@ def test_url():
 
         features = extract_features(url)
         result = model.predict([features])[0]
+        status = "Phishing 🚨" if result == 1 else "Legitimate ✅"
+        history = URLHistory(
+        user_id=user.id,
+        url=url,
+        result=status
+)
+
+        db.session.add(history)
+        
 
         user.requests_made += 1
         db.session.commit()
@@ -73,5 +84,5 @@ def test_url():
 
 # Run app
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
 
