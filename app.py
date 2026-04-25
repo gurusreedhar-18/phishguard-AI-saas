@@ -1,8 +1,7 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect, session
 from models import db, User
 from auth import auth
 from api import api
-from flask import session
 from models import URLHistory
 import pickle
 import os
@@ -23,7 +22,7 @@ app.register_blueprint(auth)
 app.register_blueprint(api)
 
 # Load model
-model = pickle.load(open("model.pkl", "rb"))
+model = pickle.load(open(os.path.join(os.path.dirname(__file__), "model.pkl"), "rb"))
 
 # Create DB tables
 with app.app_context():
@@ -34,7 +33,7 @@ with app.app_context():
 
 @app.route("/")
 def home():
-    return "<h2>Welcome to PhishGuard AI 🚀</h2><p>Go to /signup</p>"
+    return render_template("home.html")
 
 
 @app.route("/test-url", methods=["GET", "POST"])
