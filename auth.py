@@ -1,8 +1,8 @@
+
 from flask import Blueprint, request, render_template, redirect, session
 from models import db, User, URLHistory
 from werkzeug.security import generate_password_hash, check_password_hash
-from utils import generate_api_key
-
+import uuid 
 auth = Blueprint("auth", __name__)
 
 # ------------------ SIGNUP ------------------
@@ -12,10 +12,18 @@ def signup():
         username = request.form["username"]
         password = generate_password_hash(request.form["password"])
 
+        # ✅ Check if user already exists
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
+            return "Username already exists"
+
+        # ✅ Generate API key (use only ONE method)
+        api_key = str(uuid.uuid4())
+
         user = User(
             username=username,
             password=password,
-            api_key=generate_api_key()
+            api_key=api_key
         )
 
         db.session.add(user)
@@ -24,7 +32,6 @@ def signup():
         return redirect("/login")
 
     return render_template("signup.html")
-
 
 # ------------------ LOGIN ------------------
 @auth.route("/login", methods=["GET", "POST"])

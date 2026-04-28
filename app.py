@@ -2,13 +2,15 @@ from flask import Flask, request, render_template, redirect, session
 from models import db, User
 from auth import auth
 from api import api
+from flask_cors import CORS
 from models import URLHistory
 import pickle
 import os
 from feature_extraction import extract_features
 
 # ✅ FIRST create app
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
+CORS(app)
 
 # Configuration
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///new_database.db"
@@ -22,7 +24,12 @@ app.register_blueprint(auth)
 app.register_blueprint(api)
 
 # Load model
-model = pickle.load(open(os.path.join(os.path.dirname(__file__), "model.pkl"), "rb"))
+model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
+
+if not os.path.exists(model_path):
+    raise Exception("model.pkl NOT FOUND")
+
+model = pickle.load(open(model_path, "rb"))
 
 # Create DB tables
 with app.app_context():
@@ -43,7 +50,7 @@ def test_url():
         url = request.form.get("url")
         user_id = session.get("user_id")
         if not user_id:
-         return "User ID missing"
+            return "User ID missing"
 
         user = User.query.get(user_id)
 
@@ -81,7 +88,33 @@ def test_url():
     return "Invalid Request"
 
 
+@app.route("/api/check-url", methods=["POST"])
+def api_check_url():
+
+    api_key = request.headers.get("x-api-key")
+
+    user = User.query.filter_by(api_key=api_key).first()
+
+    if not user:
+        return {"error": "Invalid API key"}
+
+    data = request.get_json()
+
+    if not data or "url" not in data:
+        return {"error": "URL missing"}
+
+    url = data.get("url")
+
+    features = extract_features(url)
+    result = model.predict([features])[0]
+
+    return {
+        "url": url,
+        "result": "Phishing" if result == 1 else "Legitimate"
+    }
+    
+
+
 # Run app
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
