@@ -40,7 +40,7 @@ with app.app_context():
 
 @app.route("/")
 def home():
-    return "Working on Render 🚀"
+    return render_template("home.html")
 
 
 @app.route("/test-url", methods=["GET", "POST"])
